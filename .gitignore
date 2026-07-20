@@ -6,3 +6,10 @@ __pycache__/
 *.mat
 *.pdf
 *.xlsx
+.DS_Store
+.env
+.vscode/
+.idea/
+*.ipynb_checkpoints/
+build/
+dist/
