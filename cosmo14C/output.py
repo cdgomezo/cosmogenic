@@ -52,7 +52,7 @@ def write_year(year, data_4d, lat, lon, aux, config):
         lev_var.long_name = 'TM5 tropo34 layer index (1=surface, nlev=top)'
         lev_var.units     = "1"
         lev_var.axis      = "Z"
-        lev_var.positive  = "down"  # level 1 = surface, index increases toward TOA
+        lev_var.positive  = "up"    # level 1 = surface, index increases toward TOA
         lev_var[:] = np.arange(1, nlev + 1)
 
         # Coordinate: lat
