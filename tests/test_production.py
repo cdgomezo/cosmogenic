@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from cosmo14C.production import rigidity_cutoff, cutoff_energy
 from cosmo14C.config import E_rest
+from cosmo14C.production import global_Q
+from cosmo14C.config import Q_KOVALTSOV_PHI650
 
 
 class TestRigidityCutoff:
@@ -45,3 +47,21 @@ class TestCutoffEnergy:
         # p/nuc = 10 * (2/4) = 5 GeV/c; Eic = sqrt(0.938^2 + 5^2) - 0.938
         expected = np.sqrt(E_rest**2 + 5.0**2) - E_rest
         assert cutoff_energy(10.0, 'a') == pytest.approx(expected, rel=1e-10)
+
+
+class TestGlobalQ:
+    def test_phi650_matches_kovaltsov(self):
+        # Primary validation gate: must be within 5% of 1.66 atoms cm^-2 s^-1
+        Q = global_Q(650.0)
+        deviation = abs(Q - Q_KOVALTSOV_PHI650) / Q_KOVALTSOV_PHI650
+        assert deviation < 0.05, (
+            f"Q = {Q:.4f}, target = {Q_KOVALTSOV_PHI650:.4f}, "
+            f"deviation = {deviation:.1%}"
+        )
+
+    def test_increases_at_solar_minimum(self):
+        # Lower phi → less modulation → more GCR → higher production
+        assert global_Q(300.0) > global_Q(650.0) > global_Q(1200.0)
+
+    def test_returns_positive(self):
+        assert global_Q(500.0) > 0.0
