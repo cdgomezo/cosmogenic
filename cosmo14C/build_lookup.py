@@ -10,6 +10,9 @@ def build_local_Q_table(output_path, phi_cfg, Pc_cfg):
     phi_cfg : dict with keys min, max, n, scale ('log' or 'linear')
     Pc_cfg  : dict with keys min, max, n, scale ('log' or 'linear')
     """
+    if phi_cfg['n'] < 2 or Pc_cfg['n'] < 2:
+        raise ValueError("Grid must have at least 2 points per dimension for interpolation")
+
     if phi_cfg['scale'] == 'log':
         phi_grid = np.logspace(np.log10(phi_cfg['min']),
                                np.log10(phi_cfg['max']),
@@ -32,7 +35,7 @@ def build_local_Q_table(output_path, phi_cfg, Pc_cfg):
             Q[i, j] = local_Q(phi, Pc)
             done += 1
             if done % 100 == 0:
-                print(f"  {done}/{total} integrations complete")
+                print(f"  {done}/{total} integrations complete", flush=True)
 
     np.savez(output_path, Q=Q, phi_grid=phi_grid, Pc_grid=Pc_grid)
     print(f"Saved lookup table to {output_path}")
@@ -50,6 +53,5 @@ def load_local_Q_table(path):
         (data['phi_grid'], data['Pc_grid']),
         data['Q'],
         method='linear',
-        bounds_error=False,
-        fill_value=None  # extrapolate (clips to boundary)
+        bounds_error=True,
     )
