@@ -12,6 +12,10 @@ def load_tm5_coeffs(path):
     a_arr [Pa], b_arr [dimensionless], each shape (n_half_levels,).
     """
     df = pd.read_csv(path)
+    required = {'half_level', 'a_Pa', 'b'}
+    missing_cols = required - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"TM5 CSV missing columns: {missing_cols}")
     df = df.sort_values('half_level', ascending=False).reset_index(drop=True)
     return df['a_Pa'].to_numpy(dtype=float), df['b'].to_numpy(dtype=float)
 

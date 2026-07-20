@@ -1,6 +1,13 @@
 import numpy as np
 import pandas as pd
-import ppigrf.ppigrf as _pp
+
+try:
+    import ppigrf.ppigrf as _pp
+except ImportError as e:
+    raise ImportError(
+        "ppigrf internal API not found; tested against ppigrf>=1.0. "
+        "Check ppigrf version or update _get_dipole_coeffs()."
+    ) from e
 
 
 def _get_dipole_coeffs(year):
@@ -27,14 +34,15 @@ def _get_dipole_coeffs(year):
 
     # Reindex with the target date and interpolate
     index = g.index.union([target_date])
-    g_interp = (g.reindex(index)
-                  .groupby(index).first()
-                  .interpolate(method='time')
-                  .loc[target_date])
-    h_interp = (h.reindex(index)
-                  .groupby(index).first()
-                  .interpolate(method='time')
-                  .loc[target_date])
+    g_ext = g.reindex(index)
+    if target_date not in g.index:
+        g_ext = g_ext.interpolate(method='time')
+    g_interp = g_ext.loc[target_date]
+
+    h_ext = h.reindex(index)
+    if target_date not in h.index:
+        h_ext = h_ext.interpolate(method='time')
+    h_interp = h_ext.loc[target_date]
 
     g10 = float(g_interp[(1, 0)])
     g11 = float(g_interp[(1, 1)])
