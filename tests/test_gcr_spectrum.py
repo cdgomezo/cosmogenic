@@ -49,3 +49,7 @@ class TestJModulated:
         # So alpha modulation is weaker; at E=0.5, J_mod_alpha > J_mod_proton
         E, phi = 0.5, 1000.0
         assert J_modulated(E, phi, 'a') > J_modulated(E, phi, 'p')
+
+    def test_invalid_species_raises(self):
+        with pytest.raises(ValueError, match="species must be"):
+            J_modulated(1.0, 500.0, 'proton')

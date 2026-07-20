@@ -21,6 +21,8 @@ def J_modulated(E, phi_MV, species='p'):
     NOTE: ALPHA_RATIO is NOT applied here. Apply it in production integrands
     when summing species contributions.
     """
+    if species not in ('p', 'a'):
+        raise ValueError(f"species must be 'p' or 'a', got {species!r}")
     Zi = 1 if species == 'p' else 2
     Ai = 1 if species == 'p' else 4
     phi_GeV = phi_MV * 1e-3 * (Zi / Ai)   # energy loss potential [GeV/nuc]
