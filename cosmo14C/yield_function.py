@@ -20,17 +20,19 @@ _log_Ya = interp1d(np.log(_E_Y), np.log(_Ya_over_pi * np.pi),
 
 def Y_proton(E):
     """
-    Proton 14C yield function [atoms sr^-1 per incident nucleon].
+    Proton 14C yield function [atoms per incident nucleon], omnidirectional (π already included).
     E: kinetic energy per nucleon [GeV/nuc]
-    Interpolated in log-log space from Kovaltsov et al. (2012) Table 1.
+    Returns Y = (Y/π) × π, where Y/π values are from Kovaltsov et al. (2012) Table 1.
+    The π factor converts from the tabulated differential yield to the full solid-angle yield.
     """
     return np.exp(_log_Yp(np.log(np.asarray(E, dtype=float))))
 
 
 def Y_alpha(E):
     """
-    Alpha 14C yield function per nucleon [atoms sr^-1 per incident nucleon].
+    Alpha 14C yield function [atoms per incident nucleon], omnidirectional (π already included).
     E: kinetic energy per nucleon [GeV/nuc]
-    Interpolated in log-log space from Kovaltsov et al. (2012) Table 1.
+    Returns Y = (Y/π) × π, where Y/π values are from Kovaltsov et al. (2012) Table 1.
+    The π factor converts from the tabulated differential yield to the full solid-angle yield.
     """
     return np.exp(_log_Ya(np.log(np.asarray(E, dtype=float))))

@@ -63,5 +63,6 @@ class TestGlobalQ:
         # Lower phi → less modulation → more GCR → higher production
         assert global_Q(300.0) > global_Q(650.0) > global_Q(1200.0)
 
-    def test_returns_positive(self):
-        assert global_Q(500.0) > 0.0
+    def test_higher_M_reduces_production(self):
+        # Stronger dipole → more shielding → lower production
+        assert global_Q(650.0, M_1e22=3.0) > global_Q(650.0, M_1e22=7.8)

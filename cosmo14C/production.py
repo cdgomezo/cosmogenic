@@ -32,8 +32,10 @@ def global_Q(phi_MV, M_1e22=7.8):
     Global columnar 14C production rate [atoms cm^-2 s^-1].
 
     Uses the Kovaltsov (2012) analytical geomagnetic averaging formula:
-        Q = ∫ Y_p(E)·J_p(E,φ)·f_p(E) dE
-          + ALPHA_RATIO × ∫ Y_a(E)·J_a(E,φ)·f_a(E) dE
+        Q = ∫ Y_p(E)·J_p(E,φ)·(1−f(E)) dE
+          + ALPHA_RATIO × ∫ Y_a(E)·J_a(E,φ)·(1−f(E)) dE
+
+    Y_p, Y_a include the π factor (omnidirectional yield); no extra π needed here.
 
     where f_s(E) is the fraction of Earth's surface accessible to species s
     with rigidity P_s(E) under a dipole field of moment M_1e22:
@@ -51,6 +53,11 @@ def global_Q(phi_MV, M_1e22=7.8):
     E_max   = 1000.0  # GeV/nuc — contribution above this is negligible
     Pc_max  = 1.9 * M_1e22   # maximum cutoff rigidity [GV] (at equator)
 
+    # Kinetic energies [GeV/nuc] where accessible_fraction has a derivative kink
+    # (where rigidity P(E) = Pc_max for each species)
+    E_kink_p = np.sqrt(E_rest**2 + Pc_max**2) - E_rest          # proton
+    E_kink_a = np.sqrt(E_rest**2 + (Pc_max / 2.0)**2) - E_rest  # alpha (A/Z=2)
+
     def accessible_fraction(E, A_over_Z=1.0):
         """Fraction of Earth's surface where particles can penetrate.
 
@@ -58,10 +65,8 @@ def global_Q(phi_MV, M_1e22=7.8):
                    scales the geomagnetic rigidity P = (A/Z) · p_per_nuc.
         """
         P = A_over_Z * np.sqrt(E * (E + 2.0 * E_rest))   # rigidity [GV]
-        if P >= Pc_max:
-            return 1.0
-        inner = max(0.0, 1.0 - np.sqrt(P / Pc_max))   # guard against float noise
-        return 1.0 - np.sqrt(inner)
+        inner = np.maximum(0.0, 1.0 - np.sqrt(np.minimum(P, Pc_max) / Pc_max))
+        return np.where(P >= Pc_max, 1.0, 1.0 - np.sqrt(inner))
 
     def integrand_p(E):
         return Y_proton(E) * J_modulated(E, phi_MV, 'p') * accessible_fraction(E, 1.0)
@@ -69,8 +74,13 @@ def global_Q(phi_MV, M_1e22=7.8):
     def integrand_a(E):
         return Y_alpha(E) * J_modulated(E, phi_MV, 'a') * accessible_fraction(E, 2.0)
 
-    Ip, _ = quad(integrand_p, E_min, E_max, limit=200, epsrel=1e-4)
-    Ia, _ = quad(integrand_a, E_min, E_max, limit=200, epsrel=1e-4)
+    pts_p = [E_kink_p] if E_min < E_kink_p < E_max else []
+    pts_a = [E_kink_a] if E_min < E_kink_a < E_max else []
+
+    Ip, _ = quad(integrand_p, E_min, E_max, limit=200, epsrel=1e-4,
+                 points=pts_p)
+    Ia, _ = quad(integrand_a, E_min, E_max, limit=200, epsrel=1e-4,
+                 points=pts_a)
 
     q_m2 = Ip + ALPHA_RATIO * Ia   # [atoms m^-2 s^-1]
     return q_m2 * 1e-4              # convert m^-2 → cm^-2
