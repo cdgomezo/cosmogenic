@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import quad
-from .config import E_rest, ALPHA_RATIO
+from .config import E_rest, ALPHA_RATIO, E_TABLE_MIN
 from .gcr_spectrum import J_modulated
 from .yield_function import Y_proton, Y_alpha
 
@@ -49,7 +49,7 @@ def global_Q(phi_MV, M_1e22=7.8):
     phi_MV : solar modulation potential [MV]
     M_1e22 : geomagnetic dipole moment [10^22 A m^2]
     """
-    E_min   = 0.1     # GeV/nuc — lowest Kovaltsov table node
+    E_min   = E_TABLE_MIN     # GeV/nuc — lowest Kovaltsov table node
     E_max   = 1000.0  # GeV/nuc — contribution above this is negligible
     Pc_max  = 1.9 * M_1e22   # maximum cutoff rigidity [GV] (at equator)
 
@@ -100,13 +100,17 @@ def local_Q(phi_MV, Pc_GV):
 
     phi_MV : solar modulation potential [MV]
     Pc_GV  : vertical geomagnetic cutoff rigidity [GV]
+
+    Note: for Pc below ~0.44 GV (proton) / ~0.89 GV (alpha), the cutoff
+    energy falls below E_TABLE_MIN, so the integral clamps to E_TABLE_MIN
+    and production equals the polar (unshielded) value.
     """
+    if Pc_GV < 0:
+        raise ValueError(f"Pc_GV must be non-negative, got {Pc_GV}")
+
     E_min_p = cutoff_energy(Pc_GV, 'p')   # [GeV/nuc]
     E_min_a = cutoff_energy(Pc_GV, 'a')   # [GeV/nuc]
     E_max   = 1000.0                        # [GeV/nuc]
-
-    # Kink at table boundary (lowest yield table node)
-    E_table_min = 0.1  # GeV/nuc
 
     def integrand_p(E):
         return Y_proton(E) * J_modulated(E, phi_MV, 'p')
@@ -115,11 +119,18 @@ def local_Q(phi_MV, Pc_GV):
         return Y_alpha(E) * J_modulated(E, phi_MV, 'a')
 
     # Integration lower limit is max(table_min, cutoff_energy)
-    lo_p = max(E_table_min, E_min_p)
-    lo_a = max(E_table_min, E_min_a)
+    lo_p = max(E_TABLE_MIN, E_min_p)
+    lo_a = max(E_TABLE_MIN, E_min_a)
 
-    Ip, _ = quad(integrand_p, lo_p, E_max, limit=200, epsrel=1e-4)
-    Ia, _ = quad(integrand_a, lo_a, E_max, limit=200, epsrel=1e-4)
+    if lo_p >= E_max:
+        Ip = 0.0
+    else:
+        Ip, _ = quad(integrand_p, lo_p, E_max, limit=200, epsrel=1e-4)
+
+    if lo_a >= E_max:
+        Ia = 0.0
+    else:
+        Ia, _ = quad(integrand_a, lo_a, E_max, limit=200, epsrel=1e-4)
 
     q_m2 = Ip + ALPHA_RATIO * Ia   # [atoms m^-2 s^-1]
     return q_m2 * 1e-4              # convert m^-2 → cm^-2

@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from cosmo14C.production import local_Q, global_Q
-from cosmo14C.config import E_rest
 
 
 class TestLocalQ:

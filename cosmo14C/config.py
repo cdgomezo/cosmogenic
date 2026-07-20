@@ -6,6 +6,8 @@ M_C         = 12.011          # g/mol — molar mass of carbon
 R_earth     = 6.371e8         # cm — mean Earth radius
 s_per_yr    = 31_557_600.0    # s/yr — 365.25 days
 
+E_TABLE_MIN     = 0.1            # GeV/nuc — lowest Kovaltsov yield table node
+
 # GCR nucleonic ratio: heavier species (treated as alpha) / protons, per nucleon
 # From AMS/PAMELA measurements, Kovaltsov et al. (2012)
 ALPHA_RATIO = 0.3
