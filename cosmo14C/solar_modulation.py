@@ -19,6 +19,9 @@ def get_phi_series(year_start, year_end, config):
 
     Returns dict: {(year, month): phi_MV}
     """
+    if year_start > year_end:
+        raise ValueError(f"year_start ({year_start}) must be <= year_end ({year_end})")
+
     phi_df = pd.read_csv(config['oulu_phi_file'])
     nm_df  = pd.read_csv(config['nm_rate_file'])
 
@@ -38,13 +41,35 @@ def get_phi_series(year_start, year_end, config):
                 result[key] = float(phi_df[key])
             elif key in nm_df.index:
                 regression_used = True
-                result[key] = float(a * nm_df[key] + b)
+                phi_val = float(a * nm_df[key] + b)
+                if phi_val <= 0:
+                    warnings.warn(
+                        f"Solar modulation regression produced non-positive phi={phi_val:.1f} MV "
+                        f"for ({year}, {month}); clamping to 10 MV.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    phi_val = 10.0
+                result[key] = phi_val
             # else: month simply absent (tests may not provide all months)
 
     if regression_used:
         warnings.warn(
             "Solar modulation: NM count-rate regression used for one or more months "
             "(uncertainty ~20-30 MV). Check oulu_phi_file coverage.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    missing = []
+    for year in range(year_start, year_end + 1):
+        for month in range(1, 13):
+            if (year, month) not in result:
+                missing.append((year, month))
+    if missing:
+        warnings.warn(
+            f"Solar modulation: {len(missing)} month(s) could not be filled from "
+            f"either published phi or NM regression: {missing[:5]}{'...' if len(missing) > 5 else ''}",
             UserWarning,
             stacklevel=2,
         )

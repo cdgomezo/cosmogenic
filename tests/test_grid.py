@@ -39,8 +39,7 @@ class TestMakePcGrid:
         assert np.all(Pc == pytest.approx(0.0, abs=1e-10))
 
     def test_decreases_with_geomag_lat(self):
-        lats = np.array([[0.0, 30.0, 60.0, 90.0]])
-        geomag_lat = np.tile(lats.T, (1, 1))
+        geomag_lat = np.array([[0.0], [30.0], [60.0], [90.0]])  # shape (4, 1)
         Pc = make_Pc_grid(geomag_lat, M_1e22=7.8)
         assert Pc[0, 0] > Pc[1, 0] > Pc[2, 0] > Pc[3, 0]
 

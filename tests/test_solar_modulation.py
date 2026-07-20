@@ -47,11 +47,13 @@ class TestGetPhiSeries:
         phi_file.write_text(OULU_PHI_CSV)
         nm_file.write_text(OULU_NM_CSV)
         cfg = _make_config(str(phi_file), str(nm_file))
-        result = get_phi_series(2023, 2023, cfg)
-        # phi = a * count_rate + b = -0.85 * 6700 + 1420 = -5695 + 1420 = -4275
-        # Regression gives negative here but function should still return a float
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = get_phi_series(2023, 2023, cfg)
+        # phi = a * count_rate + b = -0.85 * 6700 + 1420 = -4275 → clamped to 10.0
         assert (2023, 6) in result
-        assert isinstance(result[(2023, 6)], float)
+        assert result[(2023, 6)] == pytest.approx(10.0)
 
     def test_all_12_months_returned_for_complete_year(self, tmp_path):
         # Build a full-year CSV
@@ -74,3 +76,12 @@ class TestGetPhiSeries:
         get_phi_series(2023, 2023, cfg)
         warning_messages = [str(w.message) for w in recwarn.list]
         assert any('regression' in m.lower() for m in warning_messages)
+
+    def test_raises_on_inverted_year_range(self, tmp_path):
+        phi_file = tmp_path / "oulu_phi.csv"
+        nm_file  = tmp_path / "nm_rates.csv"
+        phi_file.write_text(OULU_PHI_CSV)
+        nm_file.write_text(OULU_NM_CSV)
+        cfg = _make_config(str(phi_file), str(nm_file))
+        with pytest.raises(ValueError, match="year_start"):
+            get_phi_series(2025, 2020, cfg)
