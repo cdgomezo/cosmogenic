@@ -84,3 +84,42 @@ def global_Q(phi_MV, M_1e22=7.8):
 
     q_m2 = Ip + ALPHA_RATIO * Ia   # [atoms m^-2 s^-1]
     return q_m2 * 1e-4              # convert m^-2 → cm^-2
+
+
+def local_Q(phi_MV, Pc_GV):
+    """
+    Local columnar 14C production rate [atoms cm^-2 s^-1] above a hard
+    geomagnetic cutoff rigidity Pc_GV [GV].
+
+    Unlike global_Q (which uses the Kovaltsov accessible-fraction averaging),
+    this integrates from the cutoff energy upward — appropriate for a specific
+    geographic location with known Pc.
+
+    At Pc=0 (pole): returns the polar production rate (no shielding).
+    At Pc=Pc_max (equator): returns the minimum (maximum shielding).
+
+    phi_MV : solar modulation potential [MV]
+    Pc_GV  : vertical geomagnetic cutoff rigidity [GV]
+    """
+    E_min_p = cutoff_energy(Pc_GV, 'p')   # [GeV/nuc]
+    E_min_a = cutoff_energy(Pc_GV, 'a')   # [GeV/nuc]
+    E_max   = 1000.0                        # [GeV/nuc]
+
+    # Kink at table boundary (lowest yield table node)
+    E_table_min = 0.1  # GeV/nuc
+
+    def integrand_p(E):
+        return Y_proton(E) * J_modulated(E, phi_MV, 'p')
+
+    def integrand_a(E):
+        return Y_alpha(E) * J_modulated(E, phi_MV, 'a')
+
+    # Integration lower limit is max(table_min, cutoff_energy)
+    lo_p = max(E_table_min, E_min_p)
+    lo_a = max(E_table_min, E_min_a)
+
+    Ip, _ = quad(integrand_p, lo_p, E_max, limit=200, epsrel=1e-4)
+    Ia, _ = quad(integrand_a, lo_a, E_max, limit=200, epsrel=1e-4)
+
+    q_m2 = Ip + ALPHA_RATIO * Ia   # [atoms m^-2 s^-1]
+    return q_m2 * 1e-4              # convert m^-2 → cm^-2
