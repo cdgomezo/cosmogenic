@@ -10,11 +10,16 @@ import os
 import yaml
 
 
+import pathlib as _pathlib
+_OULU_PHI_PATH = _pathlib.Path(__file__).parent.parent / 'data/solar_phi/oulu_phi.csv'
+
+
 # Skip entire module if Oulu data stubs have only placeholder content
 def _has_real_phi_data():
     try:
         import pandas as pd
-        df = pd.read_csv('data/solar_phi/oulu_phi.csv')
+        path = _pathlib.Path(__file__).parent.parent / 'data/solar_phi/oulu_phi.csv'
+        df = pd.read_csv(path)
         return len(df) >= 12
     except Exception:
         return False

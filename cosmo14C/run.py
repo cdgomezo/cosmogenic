@@ -31,14 +31,16 @@ def _ensure_lookup_table(cfg):
                 return
 
     print("Building local_Q lookup table (takes ~30 s)...")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dir_part = os.path.dirname(path)
+    if dir_part:
+        os.makedirs(dir_part, exist_ok=True)
     build_local_Q_table(path, cfg['production']['phi_grid_MV'],
                         cfg['production']['Pc_grid_GV'])
     with open(hash_path, 'w') as f:
         f.write(current_hash)
 
 
-def _build_shape_volume(Pc_2d, a_arr, b_arr, mb_file, p_surf_hPa, cache={}):
+def _build_shape_volume(Pc_2d, a_arr, b_arr, mb_file, p_surf_hPa, cache):
     """
     For each unique Pc value in Pc_2d, compute shape weights.
     Uses a dict cache keyed by Pc rounded to 0.1 GV to avoid redundant computation.
@@ -90,16 +92,21 @@ def run_pipeline(cfg):
     # Step 3: Solar phi for entire period
     phi_series = get_phi_series(year_start, year_end, cfg['solar_modulation'])
 
+    _shape_cache = {}
     for year in range(year_start, year_end + 1):
         print(f"\n--- Processing {year} ---")
 
         # Geomagnetic lat and Pc (updated annually)
         geomag_lat = get_geomag_lat_grid(year, lat, lon)
-        Pc_grid    = make_Pc_grid(geomag_lat, M_1e22)
+        Pc_grid = np.clip(
+            make_Pc_grid(geomag_lat, M_1e22),
+            cfg['production']['Pc_grid_GV']['min'],
+            cfg['production']['Pc_grid_GV']['max'],
+        )
 
         # Vertical shape volume (cached per unique Pc)
         print("  Computing vertical shape weights...")
-        shape_vol = _build_shape_volume(Pc_grid, a_arr, b_arr, mb_file, p_surf)
+        shape_vol = _build_shape_volume(Pc_grid, a_arr, b_arr, mb_file, p_surf, _shape_cache)
         nlev = shape_vol.shape[0]
 
         phi_arr  = np.empty(12)
