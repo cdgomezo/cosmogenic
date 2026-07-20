@@ -25,6 +25,7 @@ class TestWriteYear:
 
     def test_dimensions_correct(self, tmp_path):
         data = np.zeros((12, 3, 4, 8))
+        # lat has 3 values but data nlat=4 — exercises the NaN-fallback path in write_year
         lat  = np.arange(-89.5, -86.5, 1.0)
         lon  = np.arange(-179.5, -171.5, 1.0)
         cfg  = {'output': {'directory': str(tmp_path), 'compress': False}}

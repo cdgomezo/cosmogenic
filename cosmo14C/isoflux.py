@@ -1,6 +1,9 @@
 import numpy as np
 from .config import N_A, M_C, R_std, s_per_yr
 
+# [atoms cm^-2 s^-1 cm^2] → [TgC permil yr^-1]
+_ATOMS_PER_CELL_TO_TGCPERMIL = s_per_yr / N_A * M_C * 1e-12 / R_std
+
 
 def to_isoflux(q_col_2d, shape_3d, cell_area_1d):
     """
@@ -32,4 +35,4 @@ def to_isoflux(q_col_2d, shape_3d, cell_area_1d):
     q_layer = shape_3d * q_cell[None, :, :]
 
     # Unit conversion
-    return q_layer * s_per_yr / N_A * M_C * 1e-12 / R_std
+    return q_layer * _ATOMS_PER_CELL_TO_TGCPERMIL

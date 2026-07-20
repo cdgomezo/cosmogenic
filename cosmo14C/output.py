@@ -38,9 +38,11 @@ def write_year(year, data_4d, lat, lon, aux, config):
 
         # Coordinate: time (month midpoints as days since epoch)
         t_var = ds.createVariable('time', 'f8', ('time',))
-        t_var.units    = f'days since {year}-01-01 00:00:00'
-        t_var.calendar = 'standard'
-        t_var.long_name = 'time'
+        t_var.units         = f'days since {year}-01-01 00:00:00'
+        t_var.calendar      = 'standard'
+        t_var.long_name     = 'time'
+        t_var.standard_name = 'time'
+        t_var.axis          = 'T'
         # Month midpoints: day 15 of each month (approximate)
         month_middays = [15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349]
         t_var[:] = np.array(month_middays, dtype='f8')
@@ -48,12 +50,16 @@ def write_year(year, data_4d, lat, lon, aux, config):
         # Coordinate: lev
         lev_var = ds.createVariable('lev', 'i4', ('lev',))
         lev_var.long_name = 'TM5 tropo34 layer index (1=surface, nlev=top)'
+        lev_var.units     = "1"
+        lev_var.axis      = "Z"
+        lev_var.positive  = "down"  # level 1 = surface, index increases toward TOA
         lev_var[:] = np.arange(1, nlev + 1)
 
         # Coordinate: lat
         lat_var = ds.createVariable('lat', 'f4', ('lat',))
-        lat_var.units    = 'degrees_north'
-        lat_var.long_name = 'latitude'
+        lat_var.units         = 'degrees_north'
+        lat_var.long_name     = 'latitude'
+        lat_var.standard_name = 'latitude'
         lat_coords = np.asarray(lat, dtype='f4')
         if len(lat_coords) == nlat:
             lat_var[:] = lat_coords
@@ -63,8 +69,9 @@ def write_year(year, data_4d, lat, lon, aux, config):
 
         # Coordinate: lon
         lon_var = ds.createVariable('lon', 'f4', ('lon',))
-        lon_var.units    = 'degrees_east'
-        lon_var.long_name = 'longitude'
+        lon_var.units         = 'degrees_east'
+        lon_var.long_name     = 'longitude'
+        lon_var.standard_name = 'longitude'
         lon_coords = np.asarray(lon, dtype='f4')
         if len(lon_coords) == nlon:
             lon_var[:] = lon_coords
