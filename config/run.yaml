@@ -1,0 +1,42 @@
+period:
+  start: 2014
+  end: 2025
+
+grid:
+  lat_res_deg: 1.0
+  lon_res_deg: 1.0
+
+vertical:
+  grid: tropo34
+  tm5_coeffs: data/tm5/tropo34_coeffs.csv
+  masarik_beer_table: data/masarik_beer_2009/table1.csv
+  p_surf_hPa: 1013.25
+
+geomagnetic:
+  M_1e22: 7.8
+  update_frequency: yearly
+
+solar_modulation:
+  oulu_phi_file: data/solar_phi/oulu_phi.csv
+  nm_rate_file: data/solar_phi/oulu_nm_rates.csv
+  regression_coeffs:
+    a: -0.5740   # calibrated: phi = a*rate + b (R²=0.998, RMSE=5.9 MV, 2010-2021 overlap)
+    b: 4168.0
+  regression_start_year: 2010
+
+production:
+  lookup_table: data/lookup/local_Q_table.npz
+  phi_grid_MV:
+    min: 10
+    max: 2000
+    n: 50
+    scale: log
+  Pc_grid_GV:
+    min: 0
+    max: 20
+    n: 100
+    scale: linear
+
+output:
+  directory: output/
+  compress: true
