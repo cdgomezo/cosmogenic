@@ -1,16 +1,10 @@
 period:
-  start: 2014
+  start: 2000
   end: 2025
 
 grid:
   lat_res_deg: 1.0
   lon_res_deg: 1.0
-
-vertical:
-  grid: tropo34
-  tm5_coeffs: data/tm5/tropo34_coeffs.csv
-  masarik_beer_table: data/masarik_beer_2009/table1.csv
-  p_surf_hPa: 1013.25
 
 geomagnetic:
   M_1e22: 7.8

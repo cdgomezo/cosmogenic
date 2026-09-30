@@ -43,7 +43,7 @@ class TestIntegration:
         cfg['period']['end']   = 2020
         cfg['output']['directory'] = str(tmp_path)
         run_pipeline(cfg)
-        self.nc_path = tmp_path / 'cosmo14C_2020.nc'
+        self.nc_path = tmp_path / 'flux_c14.cosmogenic.2020.nc'
 
     def test_output_file_exists(self):
         assert self.nc_path.exists()
@@ -51,30 +51,48 @@ class TestIntegration:
     def test_dimensions(self):
         with nc.Dataset(self.nc_path) as ds:
             assert ds.dimensions['time'].size == 12
-            assert ds.dimensions['lev'].size  == 34
             assert ds.dimensions['lat'].size  == 180
             assert ds.dimensions['lon'].size  == 360
+            # No vertical axis: TM5 distributes the column field itself
+            assert 'lev' not in ds.dimensions
 
-    def test_isoflux_all_positive(self):
+    def test_flux_all_positive(self):
         with nc.Dataset(self.nc_path) as ds:
-            data = ds.variables['C14_isoflux'][:]
+            data = ds.variables['c14flux'][:]
             assert np.all(data >= 0.0)
 
-    def test_isoflux_not_all_zero(self):
+    def test_flux_not_all_zero(self):
         with nc.Dataset(self.nc_path) as ds:
-            data = ds.variables['C14_isoflux'][:]
+            data = ds.variables['c14flux'][:]
             assert data.sum() > 0.0
 
-    def test_global_sum_reasonable(self):
+    def test_flux_magnitude_reasonable(self):
         """
-        Summing over all cells and levels for one month should give O(1e4) TgC permil yr^-1.
-        Global production ~2 atoms cm^-2 s^-1 × 5.1e18 cm^2 = 1e19 atoms s^-1
-        × 3.16e7 s/yr / 6e23 * 12 / 1.2e-12 ≈ 1e4–1e5 TgC permil yr^-1 globally.
+        Global-mean flux should be O(1e-2) umol C_D14C m^-2 s^-1.
+        Global-mean Q ~1.5-2.5 atoms cm^-2 s^-1
+          x 1e4 / N_A / R_std x 1e6 -> ~2-3.5e-2 umol m^-2 s^-1.
         """
         with nc.Dataset(self.nc_path) as ds:
-            data = ds.variables['C14_isoflux'][:]
-            month_total = float(data[0].sum())
-        assert 1e3 < month_total < 1e6
+            data = ds.variables['c14flux'][:]
+            mean_flux = float(np.mean(data))
+        assert 5e-3 < mean_flux < 1e-1
+
+    def test_global_annual_production_matches_expectation(self):
+        """
+        Area-weighted global annual total, converted back to PgC permil yr^-1,
+        must land in the range the physics implies (~3500-6500 depending on
+        solar activity). This is the end-to-end guard on the unit conversion.
+        """
+        M_C, s_per_yr, R_e = 12.011, 31_557_600.0, 6.371e6   # m
+        with nc.Dataset(self.nc_path) as ds:
+            data = ds.variables['c14flux'][:]               # (12, 180, 360)
+            lat  = ds.variables['lat'][:]
+        dlat = dlon = np.radians(1.0)
+        area = R_e**2 * np.cos(np.radians(lat)) * dlat * dlon   # m^2, (180,)
+        # umol m-2 s-1 -> mol s-1 -> gC yr-1 -> TgC yr-1 (== PgC permil yr-1)
+        per_month = (data * 1e-6 * area[None, :, None]).sum(axis=(1, 2))
+        annual = float(per_month.mean()) * s_per_yr * M_C * 1e-12
+        assert 3000 < annual < 7000, f"global annual total {annual:.0f} out of range"
 
     def test_phi_diagnostic_present_and_reasonable(self):
         with nc.Dataset(self.nc_path) as ds:

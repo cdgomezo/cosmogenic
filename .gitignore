@@ -13,3 +13,33 @@ __pycache__/
 *.ipynb_checkpoints/
 build/
 dist/
+config/run_[0-9][0-9][0-9][0-9].yaml
+logs/
+
+# Cached lookup table: rebuilt automatically when absent or when the production
+# config changes (cosmo14C/run.py::_ensure_lookup_table)
+*.npz
+*.npz.hash
+
+# Agent and editor local state
+.claude/
+
+# Reference material kept locally: papers and an external box model, neither of
+# which is this package's code
+papers/
+Box_model/
+
+# Kept locally, not published.
+#
+# Inputs to the vertical-distribution diagnostic that was removed: the code that
+# read them is gone, but both are hand-transcribed from their papers and are
+# expensive to recreate.
+data/masarik_beer_2009/
+data/tm5/
+
+# The original project specification, largely superseded by README.md.
+14C_cosmo_project_brief.md
+
+# Operational notes for the machine this was run on, which the README does not
+# assume.
+docs/

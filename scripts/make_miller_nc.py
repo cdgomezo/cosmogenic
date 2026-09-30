@@ -2,10 +2,14 @@
 """
 make_miller_nc.py — Convert cosmo14C annual output to Miller et al. (2025) format.
 
-Reads cosmo14C_YYYY.nc files produced by the cosmo14C pipeline, extracts the
-q_col diagnostic [atoms cm-2 s-1], converts to PgC permil month-1 per grid
-cell, and writes a single multi-year NetCDF with dimension order (lat, lon, time)
-matching Cosmo.nc (Miller et al. 2025).
+Reads flux_c14.cosmogenic.YYYY.nc files produced by the cosmo14C pipeline,
+converts the shipped `c14flux` field [umol C_D14C m-2 s-1] to PgC permil month-1
+per grid cell, and writes a single multi-year NetCDF with dimension order
+(lat, lon, time) matching Cosmo.nc (Miller et al. 2025).
+
+The `q_col` diagnostic [atoms cm-2 s-1] is converted independently and used to
+cross-check `c14flux`, so this script validates the units of the shipped product
+rather than merely re-deriving them.
 
 With --reference, also computes and prints comparison statistics vs. the
 reference file.
@@ -37,13 +41,17 @@ s_per_yr = 31_557_600.0     # s/yr (365.25 days)
 R_earth  = 6.371e8          # cm
 
 # Unit conversion:
-#   q_col [atoms cm-2 s-1] * cell_area [cm2] -> TgC permil month-1
+#   q_col [atoms cm-2 s-1] * cell_area [cm2] -> gC month-1 * 1e-12
 #   = (s_per_yr/12) / N_A * M_C * 1e-12 / R_std
 #
-# NOTE: Miller et al. (2025) Cosmo.nc carries the label "Pg C per mil / grid
-# cell / month", but the numeric values are consistent with TgC permil month-1
-# (the global production integral matches the expected ~4500 TgC permil yr-1).
-# We use TgC here so our values are directly numerically comparable to Cosmo.nc.
+# NOTE on units. Dividing by R_std without also multiplying by 1000 puts this in
+# the DIMENSIONLESS-Delta convention, so the result is "TgC month-1 with Delta
+# dimensionless". That is numerically identical to "PgC permil month-1", which
+# is exactly how Miller et al. (2025) Cosmo.nc labels it -- so Cosmo.nc's label
+# is correct and directly comparable to these values. (An earlier revision of
+# this file asserted Cosmo.nc had a factor-of-1000 label error; it does not.
+# Confirmed against the global integral: 5055 in Cosmo.nc native units vs an
+# expected ~4900 from a first-principles 6.7 kg 14C/yr production rate.)
 _CONV = (s_per_yr / 12.0) / N_A * M_C * 1e-12 / R_std
 
 
@@ -71,17 +79,24 @@ def _make_cell_area(lat):
 
 def read_year(path):
     """
-    Read q_col and phi from one annual cosmo14C NetCDF file.
+    Read the shipped C_D14C flux, the q_col diagnostic, and phi from one annual
+    cosmo14C NetCDF file.
 
     Returns
     -------
+    flux  : ndarray, shape (12, 180, 360) [umol C_D14C m-2 s-1], or None if the
+            file predates the umol/m2/s output format
     q_col : ndarray, shape (12, 180, 360) [atoms cm-2 s-1]
     phi   : ndarray, shape (12,) [MV]
     """
     with nc.Dataset(path, 'r') as ds:
         q_col = ds.variables['q_col'][:].data.astype('f8')
         phi   = ds.variables['phi'][:].data.astype('f8')
-    return q_col, phi
+        if 'c14flux' in ds.variables:
+            flux = ds.variables['c14flux'][:].data.astype('f8')
+        else:
+            flux = None
+    return flux, q_col, phi
 
 
 def convert_to_miller(q_col_3d, cell_area_1d):
@@ -99,6 +114,36 @@ def convert_to_miller(q_col_3d, cell_area_1d):
     """
     area = cell_area_1d[:, np.newaxis]              # (nlat, 1)
     return q_col_3d * area[np.newaxis, :, :] * _CONV
+
+
+def convert_flux_to_miller(flux_3d, cell_area_m2_1d):
+    """
+    Convert the shipped C_D14C flux [umol m-2 s-1] to Miller units
+    (PgC permil month-1 per grid cell).
+
+    This is the path that actually validates the units of the product we ship,
+    as opposed to re-deriving them from the q_col diagnostic.
+
+    Chain:
+      flux [umol C_D14C m-2 s-1]
+        x 1e-6            -> mol C_D14C m-2 s-1
+        x cell_area [m2]  -> mol C_D14C s-1
+        x s_per_yr/12     -> mol C_D14C month-1
+        x M_C             -> gC month-1
+        x 1e-12           -> TgC month-1  (== PgC permil month-1)
+
+    Parameters
+    ----------
+    flux_3d        : shape (12, nlat, nlon) [umol C_D14C m-2 s-1]
+    cell_area_m2_1d: shape (nlat,) [m2]
+
+    Returns
+    -------
+    shape (12, nlat, nlon) [PgC permil month-1 per cell]
+    """
+    area = cell_area_m2_1d[:, np.newaxis]           # (nlat, 1)
+    conv = 1e-6 * (s_per_yr / 12.0) * M_C * 1e-12
+    return flux_3d * area[np.newaxis, :, :] * conv
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +345,7 @@ def parse_args():
         epilog=__doc__,
     )
     p.add_argument('--input-dir',  required=True,
-                   help='Directory containing cosmo14C_YYYY.nc files')
+                   help='Directory containing flux_c14.cosmogenic.YYYY.nc files')
     p.add_argument('--output',     required=True,
                    help='Output NetCDF path')
     p.add_argument('--start',      type=int, required=True, help='First year')
@@ -323,24 +368,50 @@ def main():
     phi_all  = np.empty(n_months,             dtype='f8')
 
     t = 0
+    n_checked = 0
     for year in range(args.start, args.end + 1):
-        fpath = os.path.join(args.input_dir, f'cosmo14C_{year}.nc')
+        fpath = os.path.join(args.input_dir, f'flux_c14.cosmogenic.{year}.nc')
         if not os.path.exists(fpath):
             print(f"ERROR: missing input file: {fpath}", file=sys.stderr)
             sys.exit(1)
 
-        q_col, phi = read_year(fpath)
+        flux, q_col, phi = read_year(fpath)
         print(f"  {year}: phi {phi.min():.0f}–{phi.max():.0f} MV, "
               f"mean Q {q_col.mean():.3f} atoms cm-2 s-1")
 
-        data_all[t:t+12] = convert_to_miller(q_col, cell_area)
+        from_qcol = convert_to_miller(q_col, cell_area)
+
+        if flux is None:
+            # Legacy file without the shipped c14flux variable
+            print(f"    (no c14flux variable — falling back to q_col)")
+            data_all[t:t+12] = from_qcol
+        else:
+            # Convert the SHIPPED product, so this comparison validates the
+            # umol m-2 s-1 units we actually hand to TM5.
+            from_flux = convert_flux_to_miller(flux, cell_area / 1e4)
+            data_all[t:t+12] = from_flux
+
+            # Cross-check the two independent paths agree. Tolerance is set by
+            # c14flux being stored as float32 (~1e-7 relative).
+            denom = np.where(from_qcol == 0.0, 1.0, from_qcol)
+            max_rel = float(np.abs((from_flux - from_qcol) / denom).max())
+            if max_rel > 1e-5:
+                raise SystemExit(
+                    f"ERROR: {year}: c14flux and q_col disagree by "
+                    f"{max_rel:.3e} relative — unit conversion is inconsistent."
+                )
+            n_checked += 1
+
         phi_all[t:t+12]  = phi
         t += 12
 
     print(f"\nAssembled {n_months} months  "
           f"({decdate[0]:.4f} – {decdate[-1]:.4f})")
     print(f"Value range: {data_all.min():.4e} – {data_all.max():.4e} "
-          f"TgC permil month-1")
+          f"PgC permil month-1")
+    if n_checked:
+        print(f"Unit cross-check PASSED for {n_checked} year(s): "
+              f"c14flux [umol m-2 s-1] and q_col agree to <1e-5 relative.")
 
     # Unit-consistency self-check: _CONV [TgC permil month-1] = isoflux.py constant / 12
     _atoms_to_tgc = s_per_yr / N_A * M_C * 1e-12 / R_std
