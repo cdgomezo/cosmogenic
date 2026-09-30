@@ -201,4 +201,30 @@ Stuiver, M., & Polach, H. A. (1977). Discussion: Reporting of ¹⁴C data.
 Carlos Gómez-Ortiz, Department of Earth and Environmental Sciences, Lund
 University. carlos.gomez@mgeo.lu.se
 
-Licensed CC-BY-4.0.
+## License
+
+The code in this repository is MIT licensed, see `LICENSE`.
+
+That covers the implementation and nothing else. The physics is not mine, and
+neither is some of what ships beside the code:
+
+- **The method.** The yield function, the modulated cosmic ray spectrum and the
+  cutoff rigidity formulation are from the papers cited above. This is an
+  implementation of published work, so cite those papers rather than this
+  repository if you use the results.
+- **Tabulated values inside the code.** `cosmo14C/yield_function.py` carries
+  Table 1 of Kovaltsov et al. (2012) as arrays, and `cosmo14C/config.py` carries
+  that paper's and Miller et al. (2025)'s calibration targets. Those numbers are
+  the authors', quoted for interoperability.
+- **Redistributed data.** `data/solar_phi/oulu_phi.csv` is the published solar
+  modulation potential series derived from Oulu neutron monitor data
+  (Usoskin et al. 2017 and its updates), and `data/solar_phi/oulu_nm_rates.csv`
+  holds Oulu count rates obtained through NMDB, https://www.nmdb.eu. Both are
+  included so a run is reproducible without a download. They are the
+  providers' data under the providers' terms, not MIT, and both ask to be
+  acknowledged.
+- **The geomagnetic field.** The IGRF coefficients come from the `ppigrf`
+  dependency, under its own licence; nothing of IGRF is redistributed here.
+
+The comparison figures under `figures/` are generated from this code against a
+published reference dataset, which is not included.
